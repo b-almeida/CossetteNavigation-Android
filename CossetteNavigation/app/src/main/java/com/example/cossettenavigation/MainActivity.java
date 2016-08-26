@@ -16,13 +16,11 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -34,14 +32,14 @@ import com.estimote.sdk.SystemRequirementsChecker;
 import com.example.cossettenavigation.beacons.ApplicationBeaconManager;
 import com.example.cossettenavigation.beacons.BeaconTrackingData;
 import com.example.cossettenavigation.map.Beacon;
-import com.example.cossettenavigation.map.Floor;
-import com.example.cossettenavigation.map.Zone;
 import com.example.cossettenavigation.pathfinding.Path;
 import com.example.cossettenavigation.pathfinding.Step;
 
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
+
+;
 
 /*
     TODO - navigation mode - check time to help determine when to switch steps
@@ -58,7 +56,6 @@ import java.util.TimerTask;
     TODO - add enable/disable audio button
 
     TODO - modify beacons, floors, and zones to have an identifier (for code) and a description (for users)
-    TODO - add distance/time units in logs
 
     TODO - check that pathfinding only uses 1 step for an elevator/stairs over multiple floors - merge consecutive steps in the same zone?
     TODO - account for not starting at a beacon? (go to nearest exit, close/far end of hallway, etc.) - can skip and assume starting beacon
@@ -74,22 +71,22 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
     private static double BEACON_RANGE_FOR_SWITCHING_STEPS = 2;
 
-    private boolean mVisible;
-    private boolean cVisible;
-    private boolean cGranted;
+    private boolean mVisible; //UI elements (status bar, toolbar, bottom bar visible)
+    private boolean cVisible; //camera visible
+    private boolean cGranted; //camera permission granted
+
     private FrameLayout m_camera_view = null;
-    private LinearLayout bottomBar;
     private CameraView mCameraView = null;
+    private LinearLayout bottomBar;
 
-    //navigation UI elements
-    private ImageView direction;
-    private TextView instruction;
-    private TextView time;
-    private TextView description;
-    private TextView nextStep;
-
+    //UI elements (all for navigation mode, some for discovery mode)
+    private RelativeLayout toggleArrows;
     private ImageView toggleUp;
     private ImageView toggleDown;
+    private ImageView direction;
+    private TextView instruction;
+    private TextView description;
+    private TextView time;
 
     private FloatingActionButton FAB;
 
@@ -147,7 +144,6 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         setSupportActionBar(toolbar);
 
         m_camera_view = (FrameLayout) findViewById(R.id.camera_view);
-        bottomBar=(LinearLayout) findViewById(R.id.bottomBar);
 
         mVisible = true;
 
@@ -172,64 +168,14 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
             cameraPermissionGranted();
         }
 
-        direction=new ImageView(this);
-        direction.setImageResource(R.drawable.arrow);
+        bottomBar=(LinearLayout) findViewById(R.id.bottomBar);
 
-        //WIDTH AND HEIGHT SHOULD MATCH THOSE IN ARROW.XML VECTOR FILE, OTHERWISE DRAWABLE WILL BE PIXELATED
-        int arrowWidth=(int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,155, getResources().getDisplayMetrics());
-        int arrowHeight=(int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,155, getResources().getDisplayMetrics());
-
-        FrameLayout.LayoutParams arrowParams=new FrameLayout.LayoutParams(arrowWidth,arrowHeight);
-        arrowParams.gravity=Gravity.CENTER_HORIZONTAL|Gravity.CENTER_VERTICAL;
-
-        direction.setLayoutParams(arrowParams);
-
-        instruction=new TextView(this);
-        time=new TextView(this);
-        description=new TextView(this);
-        nextStep=new TextView(this);
-
-        instruction.setTextColor(getResources().getColor(android.R.color.white));
-        time.setTextColor(getResources().getColor(android.R.color.white));
-        description.setTextColor(getResources().getColor(android.R.color.white));
-        nextStep.setTextColor(getResources().getColor(android.R.color.darker_gray));
-
-        instruction.setTextSize(TypedValue.COMPLEX_UNIT_DIP,24);
-        time.setTextSize(TypedValue.COMPLEX_UNIT_DIP,24);
-        description.setTextSize(TypedValue.COMPLEX_UNIT_DIP,12);
-        nextStep.setTextSize(TypedValue.COMPLEX_UNIT_DIP,18);
-
-        RelativeLayout.LayoutParams instructionParams=new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        RelativeLayout.LayoutParams timeParams=new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        RelativeLayout.LayoutParams descriptionParams=new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-
-        instructionParams.addRule(RelativeLayout.ALIGN_PARENT_LEFT,RelativeLayout.TRUE);
-        timeParams.addRule(RelativeLayout.ALIGN_PARENT_RIGHT,RelativeLayout.TRUE);
-
-        instructionParams.setMargins(36,18,0,0);
-        timeParams.setMargins(0,18,36,0);
-        descriptionParams.setMargins(36,-12,0,0);
-
-
-        instruction.setLayoutParams(instructionParams);
-        time.setLayoutParams(timeParams);
-        description.setLayoutParams(descriptionParams);
-        nextStep.setLayoutParams(descriptionParams);
-
-        direction.setVisibility(View.INVISIBLE);
-        instruction.setVisibility(View.INVISIBLE);
-        time.setVisibility(View.INVISIBLE);
-        description.setVisibility(View.INVISIBLE);
-        nextStep.setVisibility(View.INVISIBLE);
-
-        RelativeLayout topHalf=(RelativeLayout) findViewById(R.id.topHalf);
-        RelativeLayout bottomHalf=(RelativeLayout) findViewById(R.id.bottomHalf);
-
-        m_camera_view.addView(direction);
-        topHalf.addView(instruction);
-        topHalf.addView(time);
-        bottomHalf.addView(description);
-        bottomHalf.addView(nextStep);
+        direction=(ImageView) findViewById(R.id.arrow);
+        direction.bringToFront();
+        toggleArrows=(RelativeLayout) findViewById(R.id.toggleArrows);
+        instruction=(TextView) findViewById(R.id.instruction);
+        time=(TextView) findViewById(R.id.time);
+        description=(TextView) findViewById(R.id.description);
 
         //get FAB
         FAB=(FloatingActionButton) findViewById(R.id.FAB);
@@ -258,13 +204,13 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         if (extras != null) {
             path = (Path) extras.getSerializable(INTENT_KEY_PATH);
 
-            if (path == null) {
-                enterDiscoveryMode();
-            } else {
+            if (path != null) {
                 enterNavigationMode();
+            } else {
+                enterDiscoveryMode();
             }
         }
-        else{
+        else {
             enterDiscoveryMode();
         }
     }
@@ -288,8 +234,6 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
             }
         });
 
-        // TODO - set up discovery-specific UI
-
         // Discovery UI updating
         discoveryModeTimer.schedule(new TimerTask() {
             @Override
@@ -297,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        String nearbyZones = "";
+                        /*String nearbyZones = "";
 
                         Floor floor = beaconManager.getEstimatedFloor();
                         if (floor != null) {
@@ -308,9 +252,16 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
                         for (Zone zone : beaconManager.getNearbyZones()) {
                             nearbyZones += "\n" + zone.getName();
-                        }
+                        }*/
+                        Beacon nearestBeacon=beaconManager.getNearestBeacon();
 
-                        instruction.setText(nearbyZones);
+                        if (nearestBeacon!=null) {
+                            instruction.setText("You are on "+nearestBeacon.getDescription());
+                            description.setText(nearestBeacon.getFloor().getName());
+                        } else {
+                            instruction.setText("Unknown Location");
+                            description.setText("No Beacons Found");
+                        }
                     }
                 });
             }
@@ -333,6 +284,8 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
         exitDiscoveryMode();
 
+        verifyPath();
+
         FAB.setImageResource(R.drawable.close);
         FAB.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -341,13 +294,21 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
             }
         });
 
-        // TODO - refactor navigation UI code, works with discovery code
+        bottomBar.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                /*//bottomBar.setBackgroundColor(android.R.color.holo_red_light);
+                LinearLayout helpResize=(LinearLayout) findViewById(R.id.helpResize);
+                LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) helpResize.getLayoutParams();
+                params.height = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 156, getResources().getDisplayMetrics());;
+                bottomBar.setLayoutParams(params);*/
+                return true;
+            }
+        });
 
+        toggleArrows.setVisibility(View.VISIBLE);
         direction.setVisibility(View.VISIBLE);
-        instruction.setVisibility(View.VISIBLE);
         time.setVisibility(View.VISIBLE);
-        description.setVisibility(View.VISIBLE);
-        nextStep.setVisibility(View.VISIBLE);
 
         toggleUp=(ImageView) findViewById(R.id.toggleUp);
         toggleDown=(ImageView) findViewById(R.id.toggleDown);
@@ -355,6 +316,7 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         toggleUp.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Log.i(TAG, "toggleUp.setOnClickListener()");
                 if (stepIndex>0) {
                     stepIndex--;
                     startStep();
@@ -365,6 +327,7 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         toggleDown.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Log.i(TAG, "toggleDown.setOnClickListener()");
                 if (stepIndex+1<path.getSteps().size()){
                     stepIndex++;
                     startStep();
@@ -373,10 +336,10 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         });
 
         //limit on number of characters
-        /*instruction.setText("Walk 4 m ahead");
+/*        instruction.setText("Walk 4 m ahead");
         time.setText("20 min");
-        description.setText("Top of North Stairwell");*/
-        //nextStep.setText("Walk down staircase");
+        description.setText("Top of North Stairwell");
+        nextStep.setText("Walk down staircase");*/
 
 
         if (path.getSteps().size() > 0) {
@@ -393,10 +356,11 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     private void exitNavigationMode() {
         Log.i(TAG, "exitNavigationMode()");
         stopNavigation();
-        instruction.setText("");
     }
 
     private void startNavigation() {
+        verifyPath();
+
         stepIndex = -1;
 
         // Navigation UI update
@@ -493,13 +457,17 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                direction.setVisibility(View.INVISIBLE);
+                direction.setVisibility(View.GONE);
+                toggleArrows.setVisibility(View.GONE);
+                time.setVisibility(View.GONE);
             }
         });
     }
 
     private void startStep() {
         Log.v(TAG, "startStep()");
+
+        verifyPath();
 
         final Step step = path.getSteps().get(stepIndex);
         resetNavigationStepUpdateTimer();
@@ -513,7 +481,7 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
                 direction.setRotation((float) step.getTurnAngle());
                 String text;
                 if (stepIndex == 0) {
-                    text = "Start at " + step.getStartBeacon().getName();
+                    text = "Start at " + step.getStartBeacon().getDescription();
                 } else {
                     text = step.getTurnDescription();
                 }
@@ -542,16 +510,6 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     }
 
     private boolean shouldSwitchSteps(Beacon beacon) {
-/*        Point2D location = beaconManager.getEstimatedLocation();
-        if (location != null) {
-            if (Map.distanceBetweenPoints(
-                    new Point3D(location.x, location.y, 0),
-                    new Point3D(beacon.getXPosition(), beacon.getYPosition(), 0))
-                        <= BEACON_RANGE_FOR_SWITCHING_STEPS) {
-                return true;
-            }
-        }*/
-
         BeaconTrackingData beaconTrackingData = beaconManager.getBeaconTrackingData(beacon);
         if (beaconTrackingData != null) {
             if (beaconTrackingData.getEstimatedAccuracy() <= BEACON_RANGE_FOR_SWITCHING_STEPS) {
@@ -564,6 +522,15 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
 
 
+
+    private boolean verifyPath() {
+        if (path != null) {
+            return true;
+        } else {
+            Log.e(TAG, "path = null");
+            return false;
+        }
+    }
 
     private void resetDiscoveryModeTimer() {
         discoveryModeTimer.cancel();
@@ -655,7 +622,6 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     }
 
     private void cameraOnOff() {
-
         if (cGranted) {
             if (cVisible) hideCamera();
             else showCamera();
@@ -670,6 +636,7 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     private void showCamera(){
         mCameraView=new CameraView(this);
         m_camera_view.addView(mCameraView);
+        direction.bringToFront();
         cVisible=true;
     }
 
