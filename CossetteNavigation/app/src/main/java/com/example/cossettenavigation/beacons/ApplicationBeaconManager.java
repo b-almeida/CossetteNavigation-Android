@@ -55,9 +55,6 @@ public class ApplicationBeaconManager extends Application {
      */
     private HashMap<Region, BeaconTrackingData> trackedBeacons = new HashMap<>();
 
-
-
-
     @Override
     public void onCreate() {
         //Log.v(TAG, "onCreate()");
@@ -108,9 +105,6 @@ public class ApplicationBeaconManager extends Application {
         beaconManager.setForegroundScanPeriod(250, 0);
     }
 
-
-
-
     private void setMonitoringListener() {
         beaconManager.setMonitoringListener(new BeaconManager.MonitoringListener() {
             @Override
@@ -160,8 +154,6 @@ public class ApplicationBeaconManager extends Application {
     }
 
 
-
-
     private void startScanning() {
         // Monitor all beacons
         for (com.example.cossettenavigation.map.Beacon beacon : Map.getAllBeacons()) {
@@ -174,8 +166,6 @@ public class ApplicationBeaconManager extends Application {
             beaconManager.startRanging(region);
         }
     }
-
-
 
 
     private void updateTrackedBeacon(Region region, Beacon beacon) {
@@ -238,11 +228,48 @@ public class ApplicationBeaconManager extends Application {
             }
 
             return minBeacon;
-        }
-
-        else {
+        } else {
             return null;
         }
+    }
+
+    public ArrayList<BeaconTrackingData> getNearestBeacons(){
+        ArrayList<BeaconTrackingData> beacons=new ArrayList<>();
+        for (HashMap.Entry<Region, BeaconTrackingData> trackedBeacon : trackedBeacons.entrySet()){
+            beacons.add(trackedBeacon.getValue());
+        }
+        return beacons;
+    }
+
+    public Floor getFloor() {
+        HashMap<Floor, ArrayList<Integer>> floorMatrix = new HashMap();
+        for (HashMap.Entry<Region, BeaconTrackingData> trackedBeacon : trackedBeacons.entrySet()) {
+            Floor floor = trackedBeacon.getValue().getBeacon().getFloor();
+            if (floorMatrix.containsKey(floor)) {
+                ArrayList<Integer> tuple = floorMatrix.get(floor);
+                tuple.set(0, tuple.get(0) + 1);
+                tuple.set(1, tuple.get(1) + (int) Math.pow(trackedBeacon.getValue().getEstimatedAccuracy(), 2));
+                floorMatrix.put(floor, tuple);
+            } else {
+                ArrayList<Integer> tuple = new ArrayList<>(2);
+                tuple.add(0, 1);
+                tuple.add(1, (int) Math.pow(trackedBeacon.getValue().getEstimatedAccuracy(), 2));
+                floorMatrix.put(floor, tuple);
+            }
+        }
+        Integer minDiff = Integer.MAX_VALUE;
+        Floor closeFloor = null;
+        for (Floor floor : Map.floors) {
+            if (floorMatrix.containsKey(floor)) {
+                Integer count = floorMatrix.get(floor).get(0);
+                Integer sum = floorMatrix.get(floor).get(1);
+                if (minDiff > sum - count) {
+                    minDiff = sum - count;
+                    closeFloor = floor;
+                }
+            }
+        }
+        return closeFloor;
     }
 
     public ArrayList<Zone> getNearbyZones() {
@@ -372,6 +399,4 @@ public class ApplicationBeaconManager extends Application {
 
         return string;
     }
-
-
 }

@@ -32,9 +32,11 @@ import com.estimote.sdk.SystemRequirementsChecker;
 import com.example.cossettenavigation.beacons.ApplicationBeaconManager;
 import com.example.cossettenavigation.beacons.BeaconTrackingData;
 import com.example.cossettenavigation.map.Beacon;
+import com.example.cossettenavigation.map.Floor;
 import com.example.cossettenavigation.pathfinding.NavigationStep;
 import com.example.cossettenavigation.pathfinding.Path;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Timer;
@@ -233,23 +235,21 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        /*String nearbyZones = "";
+                        Floor floor=beaconManager.getFloor();
+                        ArrayList<BeaconTrackingData> beacons=beaconManager.getNearestBeacons();
 
-                        Floor floor = beaconManager.getEstimatedFloor();
-                        if (floor != null) {
-                            nearbyZones += floor.getName() + " - ";
+                        Double minDistance=Double.POSITIVE_INFINITY;
+                        Beacon nearestBeacon=null;
+
+                        for (BeaconTrackingData beaconData:beacons){
+                            if (beaconData.getBeacon().getFloor()==floor&&minDistance>beaconData.getEstimatedAccuracy()){
+                                minDistance=beaconData.getEstimatedAccuracy();
+                                nearestBeacon=beaconData.getBeacon();
+                            }
                         }
 
-                        nearbyZones += "Nearby:";
-
-                        for (Zone zone : beaconManager.getNearbyZones()) {
-                            nearbyZones += "\n" + zone.getName();
-                        }*/
-
-                        Beacon nearestBeacon=beaconManager.getNearestBeacon();
-
                         if (nearestBeacon!=null) {
-                            instruction.setText("You are near "+nearestBeacon.getDescription());
+                            instruction.setText(nearestBeacon.getDescription());
                             description.setText(nearestBeacon.getFloor().getName());
                         } else {
                             instruction.setText("Unknown Location");
@@ -648,5 +648,5 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         Log.v(TAG, "onConfigurationChanged()");
         super.onConfigurationChanged(newConfig);
         mCameraView.activityOnConfigurationChanged();
-        }
+    }
 }
